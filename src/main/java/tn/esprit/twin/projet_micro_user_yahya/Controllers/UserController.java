@@ -11,11 +11,15 @@ import tn.esprit.twin.projet_micro_user_yahya.Entities.User;
 import tn.esprit.twin.projet_micro_user_yahya.Services.UserService;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
+    @GetMapping("/test")
+    public String test() {
+        return "API is working";
+    }
 
     @PostMapping("/register")
     public ResponseEntity<User> register(@RequestBody UserRequest request) {
