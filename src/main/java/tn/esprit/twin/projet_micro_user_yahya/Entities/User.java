@@ -28,8 +28,7 @@ public class User {
     private String firstName;
     private String lastName;
     @Column(unique = true)
-    private String cin;    private String password;
-
+    private String cin;
     @Enumerated(EnumType.STRING)
     private Role role;
 

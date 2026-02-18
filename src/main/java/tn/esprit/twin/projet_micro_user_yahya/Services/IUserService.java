@@ -17,4 +17,10 @@ public interface IUserService {
     List<User> getAllUsers();
 
     void deleteUser(Long id);
+
+    User createUser(User user);
+
+    User getUserById(Long id);
+
+    User updateUser(Long id, User updatedUser);
 }
