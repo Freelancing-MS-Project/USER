@@ -75,7 +75,7 @@ public class UserController {
         return ResponseEntity.ok(userService.register(request));
     }
     //session info Tu peux aussi lire :"session_state" pour l'ID de session Keycloak, ou d'autres claims personnalisés que tu as ajoutés dans le token.
-    @GetMapping("/me")
+    @GetMapping("/mee")
     public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
         return Map.of(
                 "username", jwt.getClaim("preferred_username"),
