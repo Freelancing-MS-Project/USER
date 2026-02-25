@@ -11,5 +11,5 @@ public class UserRequest {
     private String lastName;
     private String cin;
     private Role role;
-    private String password; // nécessaire pour Keycloak
+    private String password;
 }

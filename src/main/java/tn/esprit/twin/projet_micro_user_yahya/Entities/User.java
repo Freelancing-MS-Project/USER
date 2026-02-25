@@ -1,6 +1,7 @@
 package tn.esprit.twin.projet_micro_user_yahya.Entities;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,10 +22,10 @@ public class User {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String keycloakId;
-
-    @Column(unique = true, nullable = false)
     private String email;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(nullable = false)
+    private String password;
     private String firstName;
     private String lastName;
     @Column(unique = true)

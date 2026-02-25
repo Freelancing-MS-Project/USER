@@ -1,14 +1,15 @@
 package tn.esprit.twin.projet_micro_user_yahya.Services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import tn.esprit.twin.projet_micro_user_yahya.DTO.UserRequest;
+import tn.esprit.twin.projet_micro_user_yahya.DTO.UserUpdateRequest;
 import tn.esprit.twin.projet_micro_user_yahya.Entities.User;
 import tn.esprit.twin.projet_micro_user_yahya.Repositories.UserRepo;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import tn.esprit.twin.projet_micro_user_yahya.DTO.UserRequest;
-import tn.esprit.twin.projet_micro_user_yahya.DTO.UserUpdateRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -16,7 +17,7 @@ import tn.esprit.twin.projet_micro_user_yahya.DTO.UserUpdateRequest;
 public class UserService implements IUserService {
 
     private final UserRepo userRepo;
-    private final KeycloakService keycloakService;
+    private final PasswordEncoder passwordEncoder;
 
 
     @Override
@@ -25,49 +26,37 @@ public class UserService implements IUserService {
         if (userRepo.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already exists");
         }
-
-        String keycloakId = null;
-
-        try {
-            // 1) Create in Keycloak
-            keycloakId = keycloakService.createUser(request);
-
-            // 2) Save local profile
-            User user = new User();
-            user.setKeycloakId(keycloakId);
-            user.setEmail(request.getEmail());
-            user.setFirstName(request.getFirstName());
-            user.setLastName(request.getLastName());
-            user.setRole(request.getRole());
-            user.setCreatedAt(LocalDateTime.now());
-
-            return userRepo.save(user);
-
-        } catch (Exception e) {
-
-            // rollback Keycloak if DB fails or any error happens after user creation
-            if (keycloakId != null) {
-                try { keycloakService.deleteUser(keycloakId); } catch (Exception ignored) {}
-            }
-
-            throw new RuntimeException("Register failed: " + e.getMessage());
+        if (request.getPassword() == null || request.getPassword().isBlank()) {
+            throw new RuntimeException("Password is required");
         }
+
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setCin(request.getCin());
+        user.setRole(request.getRole());
+        user.setCreatedAt(LocalDateTime.now());
+
+        return userRepo.save(user);
     }
 
 
     @Override
-    public User getCurrentUser(String keycloakId) {
-        return userRepo.findByKeycloakId(keycloakId)
+    public User getCurrentUser(String email) {
+        return userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
     @Override
-    public User updateCurrentUser(String keycloakId, UserUpdateRequest request) {
+    public User updateCurrentUser(String email, UserUpdateRequest request) {
 
-        User user = getCurrentUser(keycloakId);
+        User user = getCurrentUser(email);
 
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
+        user.setCin(request.getCin());
         user.setUpdatedAt(LocalDateTime.now());
 
         return userRepo.save(user);
@@ -81,13 +70,16 @@ public class UserService implements IUserService {
     @Override
     public void deleteUser(Long id) {
         User user = getUserById(id);
-        keycloakService.deleteUser(user.getKeycloakId());
         userRepo.delete(user);
     }
 
 
     @Override
     public User createUser(User user) {
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new RuntimeException("Password is required");
+        }
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setCreatedAt(LocalDateTime.now());
         return userRepo.save(user);
     }
@@ -106,6 +98,9 @@ public class UserService implements IUserService {
         user.setLastName(updatedUser.getLastName());
         user.setCin(updatedUser.getCin());
         user.setRole(updatedUser.getRole());
+        if (updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
+        }
         user.setUpdatedAt(LocalDateTime.now());
 
         return userRepo.save(user);

@@ -3,8 +3,7 @@ package tn.esprit.twin.projet_micro_user_yahya.Controllers;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserRequest;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserUpdateRequest;
@@ -12,7 +11,6 @@ import tn.esprit.twin.projet_micro_user_yahya.Entities.User;
 import tn.esprit.twin.projet_micro_user_yahya.Services.UserService;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -58,30 +56,21 @@ public class UserController {
 
     // 👤 Utilisateur connecté voit son profil
     @GetMapping("/me")
-    public User getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
-        return userService.getCurrentUser(jwt.getSubject());
+    public User getCurrentUser(Authentication authentication) {
+        return userService.getCurrentUser(authentication.getName());
     }
 
     // 👤 Utilisateur connecté modifie son profil
     @PutMapping("/me")
     public User updateCurrentUser(
-            @AuthenticationPrincipal Jwt jwt,
+            Authentication authentication,
             @RequestBody UserUpdateRequest request) {
 
-        return userService.updateCurrentUser(jwt.getSubject(), request);
+        return userService.updateCurrentUser(authentication.getName(), request);
     }
+
     @PostMapping("/register")
     public ResponseEntity<User> register(@RequestBody UserRequest request) {
         return ResponseEntity.ok(userService.register(request));
     }
-    //session info Tu peux aussi lire :"session_state" pour l'ID de session Keycloak, ou d'autres claims personnalisés que tu as ajoutés dans le token.
-    @GetMapping("/mee")
-    public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
-        return Map.of(
-                "username", jwt.getClaim("preferred_username"),
-                "email", jwt.getClaim("email"),
-                "roles", jwt.getClaim("realm_access")
-        );
-    }
-
 }

@@ -10,9 +10,9 @@ public interface IUserService {
 
     User register(UserRequest request);
 
-    User getCurrentUser(String keycloakId);
+    User getCurrentUser(String email);
 
-    User updateCurrentUser(String keycloakId, UserUpdateRequest request);
+    User updateCurrentUser(String email, UserUpdateRequest request);
 
     List<User> getAllUsers();
 
