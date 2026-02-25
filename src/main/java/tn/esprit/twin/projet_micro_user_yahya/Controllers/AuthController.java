@@ -11,6 +11,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.auth.AuthResponse;
@@ -69,5 +71,25 @@ public class AuthController {
                 "role", user.getRole(),
                 "authorities", authentication.getAuthorities()
         ));
+    }
+
+    @GetMapping("/getUserConnecteById")
+    public ResponseEntity<Map<String, Object>> getUserConnecteById(
+            @RequestParam(value = "token", required = false) String token,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+
+        String jwt = token;
+        if (jwt == null || jwt.isBlank()) {
+            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                jwt = authorizationHeader.substring(7);
+            }
+        }
+
+        if (jwt == null || jwt.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Token is required"));
+        }
+
+        Long userId = jwtService.extractUserId(jwt);
+        return ResponseEntity.ok(Map.of("userId", userId));
     }
 }

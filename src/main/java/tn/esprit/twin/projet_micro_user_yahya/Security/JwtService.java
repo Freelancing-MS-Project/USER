@@ -51,6 +51,17 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
+    public Long extractUserId(String token) {
+        Object claim = extractClaim(token, claims -> claims.get("userId"));
+        if (claim == null) {
+            throw new RuntimeException("userId claim not found in token");
+        }
+        if (claim instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(claim.toString());
+    }
+
     public boolean isTokenValid(String token, UserDetails userDetails) {
         String username = extractUsername(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
