@@ -3,6 +3,7 @@ package tn.esprit.twin.projet_micro_user_yahya.Controllers;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -15,13 +16,19 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.auth.AuthResponse;
+import tn.esprit.twin.projet_micro_user_yahya.DTO.auth.FaceLoginResponse;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.auth.LoginRequest;
 import tn.esprit.twin.projet_micro_user_yahya.Entities.User;
 import tn.esprit.twin.projet_micro_user_yahya.Repositories.UserRepo;
+import tn.esprit.twin.projet_micro_user_yahya.Security.AppUserDetailsService;
 import tn.esprit.twin.projet_micro_user_yahya.Security.JwtService;
+import tn.esprit.twin.projet_micro_user_yahya.Services.IUserService;
 
 import java.util.Map;
+import java.util.Optional;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,6 +38,8 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserRepo userRepo;
+    private final AppUserDetailsService appUserDetailsService;
+    private final IUserService userService;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
@@ -44,14 +53,42 @@ public class AuthController {
         UserDetails principal = (UserDetails) authentication.getPrincipal();
         User user = userRepo.findByEmail(principal.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found after authentication"));
-        String role = user.getRole() == null ? "Client" : user.getRole().name();
-        String token = jwtService.generateToken(principal, Map.of(
-                "userId", user.getId(),
-                "email", user.getEmail(),
-                "role", role
-        ));
+        return ResponseEntity.ok(buildAuthResponse(principal, user));
+    }
 
-        return ResponseEntity.ok(new AuthResponse(token, "Bearer", principal.getUsername(), role));
+    @PostMapping(value = "/face-login", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> faceLogin(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "tolerance", required = false) Double tolerance,
+            HttpServletRequest httpRequest) {
+
+        Optional<IUserService.FaceMatchResult> matchResult = userService.findBestFaceMatch(file, tolerance);
+        if (matchResult.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "No matching face found"));
+        }
+
+        User user = matchResult.get().user();
+        UserDetails principal = appUserDetailsService.loadUserByUsername(user.getEmail());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                principal,
+                null,
+                principal.getAuthorities()
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        httpRequest.getSession(true).setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
+
+        AuthResponse authResponse = buildAuthResponse(principal, user);
+        FaceLoginResponse response = new FaceLoginResponse(
+                authResponse.getToken(),
+                authResponse.getTokenType(),
+                authResponse.getEmail(),
+                authResponse.getRole(),
+                user.getId(),
+                matchResult.get().confidence()
+        );
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/session")
@@ -91,5 +128,16 @@ public class AuthController {
 
         Long userId = jwtService.extractUserId(jwt);
         return ResponseEntity.ok(Map.of("userId", userId));
+    }
+
+    private AuthResponse buildAuthResponse(UserDetails principal, User user) {
+        String role = user.getRole() == null ? "Client" : user.getRole().name();
+        String token = jwtService.generateToken(principal, Map.of(
+                "userId", user.getId(),
+                "email", user.getEmail(),
+                "role", role
+        ));
+
+        return new AuthResponse(token, "Bearer", principal.getUsername(), role);
     }
 }

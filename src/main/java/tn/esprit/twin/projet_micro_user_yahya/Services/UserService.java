@@ -28,7 +28,9 @@ import javax.imageio.ImageIO;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -139,6 +141,28 @@ public class UserService implements IUserService {
 
     @Override
     public ResponseEntity<FaceVerificationResponse> verifyUserFace(Long userId, MultipartFile file) {
+        return verifyUserFace(userId, file, null);
+    }
+
+    @Override
+    public Optional<FaceMatchResult> findBestFaceMatch(MultipartFile file, Double tolerance) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Image file is required");
+        }
+
+        List<User> usersWithImages = userRepo.findByUserImageIsNotNull();
+        if (usersWithImages.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return usersWithImages.stream()
+                .map(user -> mapFaceMatch(user, verifyUserFace(user.getId(), file, tolerance)))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .max(Comparator.comparingDouble(FaceMatchResult::confidence));
+    }
+
+    private ResponseEntity<FaceVerificationResponse> verifyUserFace(Long userId, MultipartFile file, Double tolerance) {
         if (userId == null) {
             throw new IllegalArgumentException("userId is required");
         }
@@ -164,6 +188,9 @@ public class UserService implements IUserService {
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             body.add("userId", userId.toString());
             body.add("file", new HttpEntity<>(fileResource, fileHeaders));
+            if (tolerance != null) {
+                body.add("tolerance", tolerance.toString());
+            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -199,6 +226,28 @@ public class UserService implements IUserService {
         } catch (IOException ex) {
             throw new IllegalArgumentException("Unable to read uploaded image", ex);
         }
+    }
+
+    private Optional<FaceMatchResult> mapFaceMatch(User user, ResponseEntity<FaceVerificationResponse> response) {
+        FaceVerificationResponse body = response.getBody();
+        HttpStatus status = HttpStatus.valueOf(response.getStatusCode().value());
+
+        if (status.is2xxSuccessful() && body != null && Boolean.TRUE.equals(body.match()) && body.confidence() != null) {
+            return Optional.of(new FaceMatchResult(user, body.confidence()));
+        }
+
+        if (status == HttpStatus.BAD_REQUEST && body != null && body.error() != null) {
+            String error = body.error();
+            if (error.contains("uploaded image") || error.contains("Uploaded file must be an image")) {
+                throw new IllegalArgumentException(error);
+            }
+        }
+
+        if (status == HttpStatus.BAD_GATEWAY) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Face ID service request failed");
+        }
+
+        return Optional.empty();
     }
 
     private FaceVerificationResponse parseFaceVerificationError(HttpStatusCodeException ex) {
