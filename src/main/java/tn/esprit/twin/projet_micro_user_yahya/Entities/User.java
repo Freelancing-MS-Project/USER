@@ -1,5 +1,6 @@
 package tn.esprit.twin.projet_micro_user_yahya.Entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -32,6 +33,14 @@ public class User {
     private String cin;
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @Lob
+    @JsonIgnore
+    @Column(name = "userImage", columnDefinition = "LONGBLOB")
+    private byte[] userImage;
+
+    @Column(name = "userImageContentType")
+    private String userImageContentType;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -90,6 +99,22 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public byte[] getUserImage() {
+        return userImage;
+    }
+
+    public void setUserImage(byte[] userImage) {
+        this.userImage = userImage;
+    }
+
+    public String getUserImageContentType() {
+        return userImageContentType;
+    }
+
+    public void setUserImageContentType(String userImageContentType) {
+        this.userImageContentType = userImageContentType;
     }
 
     public LocalDateTime getCreatedAt() {

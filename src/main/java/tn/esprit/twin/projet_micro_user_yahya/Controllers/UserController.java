@@ -1,12 +1,16 @@
 package tn.esprit.twin.projet_micro_user_yahya.Controllers;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserRequest;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserUpdateRequest;
+import tn.esprit.twin.projet_micro_user_yahya.Entities.Role;
 import tn.esprit.twin.projet_micro_user_yahya.Entities.User;
 import tn.esprit.twin.projet_micro_user_yahya.Services.UserService;
 
@@ -40,6 +44,19 @@ public class UserController {
         return userService.getUserById(id);
     }
 
+    @GetMapping("/{id}/image")
+    public ResponseEntity<byte[]> getUserImage(@PathVariable Long id) {
+        User user = userService.getUserById(id);
+
+        if (user.getUserImage() == null || user.getUserImageContentType() == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(user.getUserImageContentType()))
+                .body(user.getUserImage());
+    }
+
     // 🔐 ADMIN peut modifier n'importe quel user
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -69,8 +86,40 @@ public class UserController {
         return userService.updateCurrentUser(authentication.getName(), request);
     }
 
+    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<User> registerWithImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("email") String email,
+            @RequestParam("password") String password,
+            @RequestParam(value = "firstName", required = false) String firstName,
+            @RequestParam(value = "lastName", required = false) String lastName,
+            @RequestParam(value = "cin", required = false) String cin,
+            @RequestParam(value = "role", required = false) String role) {
+
+        UserRequest request = new UserRequest();
+        request.setEmail(email);
+        request.setPassword(password);
+        request.setFirstName(firstName);
+        request.setLastName(lastName);
+        request.setCin(cin);
+        if (role != null && !role.isBlank()) {
+            request.setRole(parseRole(role));
+        }
+
+        return ResponseEntity.ok(userService.register(request, file));
+    }
+
     @PostMapping("/register")
     public ResponseEntity<User> register(@RequestBody UserRequest request) {
         return ResponseEntity.ok(userService.register(request));
+    }
+
+    private Role parseRole(String role) {
+        for (Role value : Role.values()) {
+            if (value.name().equalsIgnoreCase(role)) {
+                return value;
+            }
+        }
+        throw new IllegalArgumentException("Invalid role: " + role);
     }
 }

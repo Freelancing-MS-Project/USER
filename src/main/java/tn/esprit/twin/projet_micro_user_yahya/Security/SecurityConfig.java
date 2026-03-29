@@ -40,15 +40,19 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,
                                 "/api/users/register",
-                                "/Projet_Micro_User_yahya/api/users/register"
+                                "/ProjetMicroUseryahya/api/users/register"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/users/*/image",
+                                "/ProjetMicroUseryahya/api/users/*/image"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/Projet_Micro_User_yahya/api/auth/**",
+                                "/ProjetMicroUseryahya/api/auth/**",
                                 "/error"
                         ).permitAll()
-                        .requestMatchers("/api/admin/**", "/Projet_Micro_User_yahya/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/client/**", "/Projet_Micro_User_yahya/api/client/**").hasRole("CLIENT")
+                        .requestMatchers("/api/admin/**", "/ProjetMicroUseryahya/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/client/**", "/ProjetMicroUseryahya/api/client/**").hasRole("CLIENT")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
