@@ -1,10 +1,25 @@
 package tn.esprit.twin.projet_micro_user_yahya.Services;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserRequest;
+import tn.esprit.twin.projet_micro_user_yahya.DTO.FaceVerificationResponse;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserUpdateRequest;
 import tn.esprit.twin.projet_micro_user_yahya.Entities.User;
 import tn.esprit.twin.projet_micro_user_yahya.Repositories.UserRepo;
@@ -14,6 +29,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.http.HttpStatus;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +39,11 @@ public class UserService implements IUserService {
 
     private final UserRepo userRepo;
     private final PasswordEncoder passwordEncoder;
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${face.id.service.url:http://localhost:5000/verify}")
+    private String faceIdServiceUrl;
 
 
     @Override
@@ -113,6 +135,89 @@ public class UserService implements IUserService {
         user.setUpdatedAt(LocalDateTime.now());
 
         return userRepo.save(user);
+    }
+
+    @Override
+    public ResponseEntity<FaceVerificationResponse> verifyUserFace(Long userId, MultipartFile file) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Image file is required");
+        }
+
+        try {
+            ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
+                @Override
+                public String getFilename() {
+                    return file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload-image";
+                }
+            };
+
+            HttpHeaders fileHeaders = new HttpHeaders();
+            if (file.getContentType() != null && !file.getContentType().isBlank()) {
+                fileHeaders.setContentType(MediaType.parseMediaType(file.getContentType()));
+            } else {
+                fileHeaders.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            }
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("userId", userId.toString());
+            body.add("file", new HttpEntity<>(fileResource, fileHeaders));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            ResponseEntity<FaceVerificationResponse> response = restTemplate.exchange(
+                    faceIdServiceUrl,
+                    HttpMethod.POST,
+                    requestEntity,
+                    FaceVerificationResponse.class
+            );
+
+            FaceVerificationResponse responseBody = response.getBody();
+            if (responseBody == null) {
+                responseBody = new FaceVerificationResponse(null, null, "Empty response from Face ID service");
+            }
+
+            return ResponseEntity.status(response.getStatusCode()).body(responseBody);
+        } catch (HttpStatusCodeException ex) {
+            return ResponseEntity.status(ex.getStatusCode()).body(parseFaceVerificationError(ex));
+        } catch (ResourceAccessException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Face ID service is unreachable",
+                    ex
+            );
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Face ID service request failed",
+                    ex
+            );
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Unable to read uploaded image", ex);
+        }
+    }
+
+    private FaceVerificationResponse parseFaceVerificationError(HttpStatusCodeException ex) {
+        try {
+            FaceVerificationResponse response = objectMapper.readValue(
+                    ex.getResponseBodyAsByteArray(),
+                    FaceVerificationResponse.class
+            );
+            if (response != null) {
+                return response;
+            }
+        } catch (IOException ignored) {
+        }
+
+        String message = ex.getResponseBodyAsString();
+        if (message == null || message.isBlank()) {
+            message = "Face ID service request failed";
+        }
+        return new FaceVerificationResponse(null, null, message);
     }
 
     private void attachProfileImage(User user, MultipartFile file) {

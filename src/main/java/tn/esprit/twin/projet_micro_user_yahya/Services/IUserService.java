@@ -1,6 +1,8 @@
 package tn.esprit.twin.projet_micro_user_yahya.Services;
 
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.ResponseEntity;
+import tn.esprit.twin.projet_micro_user_yahya.DTO.FaceVerificationResponse;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserRequest;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserUpdateRequest;
 import tn.esprit.twin.projet_micro_user_yahya.Entities.User;
@@ -26,4 +28,6 @@ public interface IUserService {
     User getUserById(Long id);
 
     User updateUser(Long id, User updatedUser);
+
+    ResponseEntity<FaceVerificationResponse> verifyUserFace(Long userId, MultipartFile file);
 }

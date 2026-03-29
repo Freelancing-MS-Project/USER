@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import tn.esprit.twin.projet_micro_user_yahya.DTO.FaceVerificationResponse;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserRequest;
 import tn.esprit.twin.projet_micro_user_yahya.DTO.UserUpdateRequest;
 import tn.esprit.twin.projet_micro_user_yahya.Entities.Role;
@@ -55,6 +56,13 @@ public class UserController {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(user.getUserImageContentType()))
                 .body(user.getUserImage());
+    }
+
+    @PostMapping(value = "/verify", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<FaceVerificationResponse> verifyUserFace(
+            @RequestParam("userId") Long userId,
+            @RequestParam("file") MultipartFile file) {
+        return userService.verifyUserFace(userId, file);
     }
 
     // 🔐 ADMIN peut modifier n'importe quel user

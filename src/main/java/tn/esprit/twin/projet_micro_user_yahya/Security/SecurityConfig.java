@@ -40,7 +40,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,
                                 "/api/users/register",
-                                "/ProjetMicroUseryahya/api/users/register"
+                                "/ProjetMicroUseryahya/api/users/register",
+                                "/api/users/verify",
+                                "/ProjetMicroUseryahya/api/users/verify"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/users/*/image",
