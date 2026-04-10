@@ -14,7 +14,7 @@ from requests import Response
 
 USER_SERVICE_BASE_URL = os.getenv(
     "USER_SERVICE_BASE_URL",
-    "http://localhost:8085/ProjetMicroUseryahya",
+    "http://localhost:8090/ProjetMicroUseryahya",
 ).rstrip("/")
 DEFAULT_TOLERANCE = float(os.getenv("FACE_ID_TOLERANCE", "0.6"))
 REQUEST_TIMEOUT_SECONDS = float(os.getenv("USER_SERVICE_TIMEOUT_SECONDS", "10"))
